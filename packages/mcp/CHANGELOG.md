@@ -1,5 +1,52 @@
 # @upstash/context7-mcp
 
+## 4.0.2
+
+### Patch Changes
+
+- 67528f2: Add a 60s `AbortSignal.timeout()` to both Context7 API calls in `lib/api.ts`. Without a signal a stalled backend call rides undici's ~300s default before failing. 60s is generous: these are vector queries with p99.9 ~3.2s, and no request exceeded 30s across a full day of production traffic.
+- c68104e: Disable SSE keepalive heartbeats on the HTTP handler (`keepAliveMs: 0`). Every tool is a millisecond vector query, so no legitimate exchange needs a heartbeat — but a hung exchange kept alive by heartbeats can never be reaped by a proxy's stream idle timeout. One such hang is deterministic: a 2025-era JSON-RPC batch carrying a request plus its own `notifications/cancelled` gets no response for the cancelled request (per spec), the SDK transport then never closes the stream, and heartbeats kept it alive until the gateway's 1200s hard cap — the dominant source of leaked upstream connections in the 2026-08-11 mcp.context7.com outage. With heartbeats off, silent hangs go idle and the proxy reaps them at its idle timeout.
+
+## 4.0.1
+
+### Patch Changes
+
+- af7e4ad: Stop forcing `responseMode: "sse"` on the HTTP handler and use the SDK default `"auto"` instead. Forcing `"sse"` put every response on an SSE stream, and those streams were not released: concurrent upstream streams went from ~10 before v4.0.0 to over 5000, exhausting the gateway connection pool and returning 503 `reset reason: overflow` on `mcp.context7.com`. Traffic and latency were unchanged over that period, so the growth was not load.
+
+  With `"auto"` a request is answered with a single JSON body unless a handler emits a related message before its result, which upgrades that one exchange to SSE. No tool emits progress today, so modern-protocol responses are now plain JSON. The 2025-era legacy fallback is constructed without a `responseMode` and still streams over SSE, so it is unaffected.
+
+## 4.0.0
+
+### Major Changes
+
+- 8d52608: Migrate the MCP server to the v2 SDK (`@modelcontextprotocol/{node,server,client}` 2.0.0) and the 2026-07-28 protocol revision. HTTP serving is now stateless for both modern and legacy clients, and Redis-backed sessions are removed.
+
+## 3.2.5
+
+### Patch Changes
+
+- beded6c: Bump `undici` to 7 and require Node.js >= 20.18.1. On Node 26+ (internal undici 8) the bundled undici 6 `setGlobalDispatcher` wrote a global-dispatcher symbol the built-in `fetch` no longer reads, so `HTTPS_PROXY` and custom-CA settings were silently ignored and requests failed with `ENOTFOUND` behind CONNECT proxies. undici 7 writes both symbols, restoring proxy and CA support. Node 18 is no longer supported (EOL; undici 7 requires Node >= 20.18.1).
+- 1c081df: Improve query prompts so agents request relevant library documentation instead of passing the task to complete.
+
+## 3.2.4
+
+### Patch Changes
+
+- c61a565: Bump jose from 6.1.3 to 6.2.3.
+
+## 3.2.3
+
+### Patch Changes
+
+- 41878ec: Skip loopback (`127.0.0.0/8`), link-local (`169.254.0.0/16`), CGNAT (`100.64.0.0/10`), IPv6 loopback (`::1`), IPv6 link-local (`fe80::/10`), and IPv6 unique-local (`fc00::/7`) addresses when extracting the client IP from `X-Forwarded-For`, so proxy-internal hops no longer pollute the reported client IP.
+- 33229cb: Clarify the `query-docs` query description so it asks for a single concept per query. When a question spans multiple distinct topics, callers are now told to make a separate query per concept instead of combining them (unless the question is about how the concepts interact), which avoids diluted, shallow results. Applied consistently across the MCP server, CLI, pi, and AI SDK tools.
+
+## 3.2.2
+
+### Patch Changes
+
+- 2253765: Validate Enterprise-Managed Auth (id-jag) access tokens at the MCP server, so MCP clients can authenticate to Context7 through an enterprise IdP (Okta) via the MCP Enterprise-Managed Authorization extension.
+
 ## 3.2.1
 
 ### Patch Changes

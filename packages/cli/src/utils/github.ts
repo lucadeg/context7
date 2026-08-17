@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import type { SkillFile, Skill } from "../types.js";
 import { isSafeSkillName } from "./skill-name.js";
 
@@ -85,9 +85,15 @@ function getGitHubToken(): string | undefined {
   const envToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (envToken) return envToken;
   try {
-    return execSync("gh auth token", { stdio: ["pipe", "pipe", "ignore"] })
-      .toString()
-      .trim();
+    // Deliberately shell-free: execSync would wrap this in `cmd.exe /d /s /c` on Windows,
+    // which EDR tooling reports as suspicious Node behavior (#2918). Do not add `shell`
+    // to make a .cmd/.bat `gh` shim resolve; that reintroduces the flagged process for
+    // everyone. Such shims are rare (mainstream Windows installs ship gh.exe) and only
+    // cost the fallback to unauthenticated requests.
+    return execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim();
   } catch {
     return undefined;
   }
@@ -152,15 +158,24 @@ function getGitHubHeaders(): Record<string, string> {
   };
 }
 
+async function extractGitHubError(response: Response): Promise<string> {
+  let detail = `HTTP ${response.status}`;
+  try {
+    const body = (await response.json()) as { message?: string };
+    if (body.message) detail += `: ${body.message}`;
+  } catch {}
+  return detail;
+}
+
 async function fetchRepoTree(
   owner: string,
   repo: string,
   branch: string,
   headers: Record<string, string>
-): Promise<GitHubTreeResponse | null> {
+): Promise<GitHubTreeResponse | { error: string }> {
   const treeUrl = `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
   const response = await fetch(treeUrl, { headers });
-  if (!response.ok) return null;
+  if (!response.ok) return { error: await extractGitHubError(response) };
   return (await response.json()) as GitHubTreeResponse;
 }
 
@@ -168,9 +183,9 @@ async function fetchDefaultBranch(
   owner: string,
   repo: string,
   headers: Record<string, string>
-): Promise<{ branch: string } | { status: number }> {
+): Promise<{ branch: string } | { error: string; status: number }> {
   const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, { headers });
-  if (!response.ok) return { status: response.status };
+  if (!response.ok) return { error: await extractGitHubError(response), status: response.status };
   const data = (await response.json()) as { default_branch: string };
   return { branch: data.default_branch };
 }
@@ -190,10 +205,13 @@ export async function listSkillsFromGitHub(project: string): Promise<GitHubSkill
 
     const headers = getGitHubHeaders();
     const branchResult = await fetchDefaultBranch(owner, repo, headers);
-    if ("status" in branchResult) return { status: "repo_not_found" };
+    if ("error" in branchResult) {
+      if (branchResult.status === 404) return { status: "repo_not_found" };
+      return { status: "error", error: branchResult.error };
+    }
 
     const treeData = await fetchRepoTree(owner, repo, branchResult.branch, headers);
-    if (!treeData) return { status: "error", error: "Could not fetch repository tree" };
+    if ("error" in treeData) return { status: "error", error: treeData.error };
 
     const skillMdFiles = treeData.tree.filter(
       (item) => item.type === "blob" && item.path.toLowerCase().endsWith("skill.md")
@@ -235,61 +253,102 @@ export async function getSkillFromGitHub(
   return { ...result, skill };
 }
 
+async function downloadSkillTree(
+  owner: string,
+  repo: string,
+  branch: string,
+  skillPath: string,
+  ghHeaders: Record<string, string>
+): Promise<{ files: SkillFile[]; error?: string }> {
+  const treeData = await fetchRepoTree(owner, repo, branch, ghHeaders);
+  if ("error" in treeData) {
+    const hint =
+      !ghHeaders["Authorization"] && /403|429|rate/.test(treeData.error)
+        ? " — run `gh auth login` or set the GITHUB_TOKEN env var to increase rate limits"
+        : "";
+    return { files: [], error: `GitHub API error: ${treeData.error}${hint}` };
+  }
+
+  const skillFiles = treeData.tree.filter(
+    (item) => item.type === "blob" && item.path.startsWith(skillPath + "/")
+  );
+
+  if (skillFiles.length === 0) {
+    return { files: [], error: `No files found in ${skillPath}` };
+  }
+
+  const files: SkillFile[] = [];
+  for (const item of skillFiles) {
+    const rawUrl = `${GITHUB_RAW}/${owner}/${repo}/${branch}/${item.path}`;
+    const fileResponse = await fetch(rawUrl, { headers: ghHeaders });
+
+    if (!fileResponse.ok) {
+      console.warn(`Failed to fetch ${item.path}: ${fileResponse.status}`);
+      continue;
+    }
+
+    const content = await fileResponse.text();
+    const relativePath = item.path.slice(skillPath.length + 1);
+
+    // Reject paths that attempt directory traversal
+    if (relativePath.includes("..")) {
+      console.warn(`Skipping file with unsafe path: ${item.path}`);
+      continue;
+    }
+
+    files.push({
+      path: relativePath,
+      content,
+    });
+  }
+
+  return { files };
+}
+
+async function downloadSingleSkillFile(
+  skillUrl: string,
+  ghHeaders: Record<string, string>
+): Promise<SkillFile[] | null> {
+  let fileName: string;
+  try {
+    const url = new URL(skillUrl);
+    const last = url.pathname.split("/").filter(Boolean).pop();
+    if (url.hostname !== "raw.githubusercontent.com" || !last || !last.includes(".")) {
+      return null;
+    }
+    fileName = last;
+  } catch {
+    return null;
+  }
+
+  const response = await fetch(skillUrl, { headers: ghHeaders });
+  if (!response.ok) return null;
+  const content = await response.text();
+  return [{ path: fileName, content }];
+}
+
 export async function downloadSkillFromGitHub(
   skill: Skill & { project: string }
 ): Promise<{ files: SkillFile[]; error?: string }> {
-  try {
-    const parsed = parseGitHubUrl(skill.url);
-
-    if (!parsed) {
-      return { files: [], error: `Invalid GitHub URL: ${skill.url}` };
-    }
-
-    const { owner, repo, branch, path: skillPath } = parsed;
-
-    const ghHeaders = getGitHubHeaders();
-
-    const treeData = await fetchRepoTree(owner, repo, branch, ghHeaders);
-    if (!treeData) {
-      return { files: [], error: `GitHub API error` };
-    }
-
-    const skillFiles = treeData.tree.filter(
-      (item) => item.type === "blob" && item.path.startsWith(skillPath + "/")
-    );
-
-    if (skillFiles.length === 0) {
-      return { files: [], error: `No files found in ${skillPath}` };
-    }
-
-    const files: SkillFile[] = [];
-    for (const item of skillFiles) {
-      const rawUrl = `${GITHUB_RAW}/${owner}/${repo}/${branch}/${item.path}`;
-      const fileResponse = await fetch(rawUrl, { headers: ghHeaders });
-
-      if (!fileResponse.ok) {
-        console.warn(`Failed to fetch ${item.path}: ${fileResponse.status}`);
-        continue;
-      }
-
-      const content = await fileResponse.text();
-      const relativePath = item.path.slice(skillPath.length + 1);
-
-      // Reject paths that attempt directory traversal
-      if (relativePath.includes("..")) {
-        console.warn(`Skipping file with unsafe path: ${item.path}`);
-        continue;
-      }
-
-      files.push({
-        path: relativePath,
-        content,
-      });
-    }
-
-    return { files };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { files: [], error: message };
+  const parsed = parseGitHubUrl(skill.url);
+  if (!parsed) {
+    return { files: [], error: `Invalid GitHub URL: ${skill.url}` };
   }
+
+  const { owner, repo, branch, path: skillPath } = parsed;
+  const ghHeaders = getGitHubHeaders();
+
+  let treeError: string | undefined;
+  try {
+    const result = await downloadSkillTree(owner, repo, branch, skillPath, ghHeaders);
+    if (result.files.length > 0) return { files: result.files };
+    treeError = result.error;
+  } catch (err) {
+    treeError = err instanceof Error ? err.message : String(err);
+  }
+
+  const single = await downloadSingleSkillFile(skill.url, ghHeaders).catch(() => null);
+  if (single) return { files: single };
+
+  return { files: [], error: treeError ?? `No files found in ${skillPath}` };
 }

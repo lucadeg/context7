@@ -4,7 +4,7 @@
 
 # Context7 MCP - Up-to-date Code Docs For Any Prompt
 
-[![Website](https://img.shields.io/badge/Website-context7.com-blue)](https://context7.com) [![smithery badge](https://smithery.ai/badge/@upstash/context7-mcp)](https://smithery.ai/server/@upstash/context7-mcp) [![NPM Version](https://img.shields.io/npm/v/%40upstash%2Fcontext7-mcp?color=red)](https://www.npmjs.com/package/@upstash/context7-mcp) [![MIT licensed](https://img.shields.io/npm/l/%40upstash%2Fcontext7-mcp)](./LICENSE)
+[![Website](https://img.shields.io/badge/Website-context7.com-blue)](https://context7.com) [![NPM Version](https://img.shields.io/npm/v/%40upstash%2Fcontext7-mcp?color=red)](https://www.npmjs.com/package/@upstash/context7-mcp) [![MIT licensed](https://img.shields.io/npm/l/%40upstash%2Fcontext7-mcp)](./LICENSE)
 
 [![繁體中文](https://img.shields.io/badge/docs-繁體中文-yellow)](./i18n/README.zh-TW.md) [![简体中文](https://img.shields.io/badge/docs-简体中文-yellow)](./i18n/README.zh-CN.md) [![日本語](https://img.shields.io/badge/docs-日本語-b7003a)](./i18n/README.ja.md) [![한국어 문서](https://img.shields.io/badge/docs-한국어-green)](./i18n/README.ko.md) [![Documentación en Español](https://img.shields.io/badge/docs-Español-orange)](./i18n/README.es.md) [![Documentation en Français](https://img.shields.io/badge/docs-Français-blue)](./i18n/README.fr.md) [![Documentação em Português (Brasil)](<https://img.shields.io/badge/docs-Português%20(Brasil)-purple>)](./i18n/README.pt-BR.md) [![Documentazione in italiano](https://img.shields.io/badge/docs-Italian-red)](./i18n/README.it.md) [![Dokumentasi Bahasa Indonesia](https://img.shields.io/badge/docs-Bahasa%20Indonesia-pink)](./i18n/README.id-ID.md) [![Dokumentation auf Deutsch](https://img.shields.io/badge/docs-Deutsch-darkgreen)](./i18n/README.de.md) [![Документация на русском языке](https://img.shields.io/badge/docs-Русский-darkblue)](./i18n/README.ru.md) [![Українська документація](https://img.shields.io/badge/docs-Українська-lightblue)](./i18n/README.uk.md) [![Türkçe Doküman](https://img.shields.io/badge/docs-Türkçe-blue)](./i18n/README.tr.md) [![Arabic Documentation](https://img.shields.io/badge/docs-Arabic-white)](./i18n/README.ar.md) [![Tiếng Việt](https://img.shields.io/badge/docs-Tiếng%20Việt-red)](./i18n/README.vi.md)
 
@@ -51,7 +51,7 @@ Check out our [project addition guide](https://context7.com/docs/adding-librarie
 
 ### Requirements
 
-- Node.js >= v18.0.0
+- Node.js >= v20.18.1
 - Cursor, Claude Code, VSCode, Devin Desktop or another MCP Client
 - Context7 API Key (Optional) for higher rate limits and private repositories (Get yours by creating an account at [context7.com/dashboard](https://context7.com/dashboard))
 
@@ -107,7 +107,7 @@ Pasting the following configuration into your Cursor `~/.cursor/mcp.json` file i
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -145,7 +145,7 @@ claude mcp add --scope user context7 -- npx -y @upstash/context7-mcp --api-key Y
 #### Claude Code Remote Server Connection
 
 ```sh
-claude mcp add --scope user --header "CONTEXT7_API_KEY: YOUR_API_KEY" --transport http context7 https://mcp.context7.com/mcp
+claude mcp add --scope user --header "Authorization: Bearer YOUR_API_KEY" --transport http context7 https://mcp.context7.com/mcp
 ```
 
 > Remove `--scope user` to install for the current project only.
@@ -166,7 +166,7 @@ amp mcp add context7 https://mcp.context7.com/mcp
 #### With API Key (Higher Rate Limits & Private Repos)
 
 ```sh
-amp mcp add context7 --header "CONTEXT7_API_KEY=YOUR_API_KEY" https://mcp.context7.com/mcp
+amp mcp add context7 --header "Authorization=Bearer YOUR_API_KEY" https://mcp.context7.com/mcp
 ```
 
 </details>
@@ -184,7 +184,7 @@ Add this to your Devin Desktop MCP config file. See [Devin Desktop MCP docs](htt
     "context7": {
       "serverUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -223,7 +223,7 @@ Add this to your VS Code MCP config file. See [VS Code MCP docs](https://code.vi
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -432,7 +432,7 @@ Add this to your Antigravity MCP config file. See [Antigravity MCP docs](https:/
     "context7": {
       "serverUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -468,7 +468,7 @@ Add this to your Roo Code MCP configuration file. See [Roo Code MCP docs](https:
       "type": "streamable-http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -504,7 +504,7 @@ See [Gemini CLI Configuration](https://google-gemini.github.io/gemini-cli/docs/t
     "context7": {
       "httpUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY",
+        "Authorization": "Bearer YOUR_API_KEY",
         "Accept": "application/json, text/event-stream"
       }
     }
@@ -543,7 +543,7 @@ See [Qwen Coder MCP Configuration](https://qwenlm.github.io/qwen-code-docs/en/to
     "context7": {
       "httpUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY",
+        "Authorization": "Bearer YOUR_API_KEY",
         "Accept": "application/json, text/event-stream"
       }
     }
@@ -605,7 +605,7 @@ Add this to your Opencode configuration file. See [Opencode MCP docs](https://op
     "type": "remote",
     "url": "https://mcp.context7.com/mcp",
     "headers": {
-      "CONTEXT7_API_KEY": "YOUR_API_KEY"
+      "Authorization": "Bearer YOUR_API_KEY"
     },
     "enabled": true
   }
@@ -649,7 +649,7 @@ startup_timeout_ms = 20_000
 ```toml
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
-http_headers = { "CONTEXT7_API_KEY" = "YOUR_API_KEY" }
+http_headers = { "Authorization" = "Bearer YOUR_API_KEY" }
 ```
 
 > Optional troubleshooting — only if you see startup "request timed out" or "not found program". Most users can ignore this.
@@ -742,7 +742,7 @@ To use an API key in Kiro, add:
 
 ```json
 "headers": {
-  "CONTEXT7_API_KEY": "YOUR_API_KEY"
+  "Authorization": "Bearer YOUR_API_KEY"
 }
 ```
 
@@ -852,7 +852,7 @@ If you prefer to run the MCP server in a Docker container:
    <summary>Click to see Dockerfile content</summary>
 
    ```Dockerfile
-   FROM node:18-alpine
+   FROM node:20-alpine
 
    WORKDIR /app
 
@@ -1015,7 +1015,7 @@ Add the following configuration to the `mcp` section of your Copilot Coding Agen
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       },
       "tools": ["get-library-docs", "resolve-library-id"]
     }
@@ -1040,7 +1040,7 @@ For more information, see the [official GitHub documentation](https://docs.githu
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       },
       "tools": ["get-library-docs", "resolve-library-id"]
     }
@@ -1112,7 +1112,7 @@ Add this to your Visual Studio MCP config file (see the [Visual Studio docs](htt
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -1154,7 +1154,7 @@ Add this to your Crush configuration file. See [Crush MCP docs](https://github.c
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -1327,7 +1327,7 @@ Factory's droid supports MCP servers through its CLI. See [Factory MCP docs](htt
 Run this command in your terminal:
 
 ```sh
-droid mcp add context7 https://mcp.context7.com/mcp --type http --header "CONTEXT7_API_KEY: YOUR_API_KEY"
+droid mcp add context7 https://mcp.context7.com/mcp --type http --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 Or without an API key (basic usage with rate limits):
@@ -1363,6 +1363,25 @@ Once configured, Context7 tools will be available in your droid sessions. Type `
 Configure your coding agent (Codex, Claude Code, Cursor, etc.) to connect to Context7 MCP. Emdash does not modify your agent's config. See the respective MCP configuration sections above for your agent (e.g., OpenAI Codex, Claude Code, Cursor).
 
 See the [Emdash repository](https://github.com/generalaction/emdash) for more information.
+
+</details>
+
+<details>
+<summary><b>Install in Autohand Code</b></summary>
+
+Use the [Autohand Code CLI](https://github.com/autohandai/code-cli/) to add the local Context7 server:
+
+```sh
+autohand mcp add context7 npx -y @upstash/context7-mcp --api-key YOUR_API_KEY
+```
+
+Add `--scope project` before `context7` to save the server in the current project's `.autohand` configuration instead of your user configuration.
+
+For basic usage without an API key, you can connect to the remote server instead:
+
+```sh
+autohand mcp add --transport http context7 https://mcp.context7.com/mcp
+```
 
 </details>
 
@@ -1573,7 +1592,7 @@ Use the `--experimental-fetch` flag to bypass TLS-related problems:
 1. Try adding `@latest` to the package name
 2. Use `bunx` as an alternative to `npx`
 3. Consider using `deno` as another alternative
-4. Ensure you're using Node.js v18 or higher for native fetch support
+4. Ensure you're using Node.js v20 or higher for native fetch support
 
 </details>
 
@@ -1601,10 +1620,6 @@ Stay updated and join our community:
 - [Income Stream Surfers: "Context7: The New MCP Server That Will CHANGE AI Coding"](https://www.youtube.com/watch?v=PS-2Azb-C3M)
 - [AICodeKing: "Context7 + Cline & RooCode: This MCP Server Makes CLINE 100X MORE EFFECTIVE!"](https://www.youtube.com/watch?v=qZfENAPMnyo)
 - [Sean Kochel: "5 MCP Servers For Vibe Coding Glory (Just Plug-In & Go)"](https://www.youtube.com/watch?v=LqTQi8qexJM)
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=upstash/context7&type=Date)](https://www.star-history.com/#upstash/context7&Date)
 
 ## 📄 License
 

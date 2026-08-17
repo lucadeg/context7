@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.5.8
+
+### Patch Changes
+
+- 91dea9f: Fix `ctx7 library`, `ctx7 docs` and `ctx7 skills suggest` silently falling back to anonymous requests when the stored OAuth token expires, which surfaced misleading quota errors for authenticated users. `ctx7 generate` no longer forces a full interactive re-login when the token can be refreshed instead. All four commands now go through `getValidAccessToken()`, which refreshes expired credentials.
+
+  A successful refresh also keeps the stored `refresh_token` when the server omits one from the response, as permitted by RFC 6749 §6. Previously the response was written verbatim, so the refresh token was dropped and the user was silently logged out at the next expiry.
+
+## 0.5.7
+
+### Patch Changes
+
+- b89a04e: `ctx7 setup` now writes the API key as a standard `Authorization: Bearer <key>` header instead of a custom `CONTEXT7_API_KEY` header. Codex resolves a server's auth mode from `bearer_token_env_var` or a header literally named `Authorization`, so a custom name read as "no credential configured": Codex fell through to an OAuth credential stored against the same server name and URL, refreshed it during startup, and when that refresh token was dead the server failed with `invalid_grant` before the API key was ever sent. The hosted endpoint accepts both header forms, so existing configs keep working.
+
+## 0.5.6
+
+### Patch Changes
+
+- 23843e9: Read the GitHub CLI auth token by invoking `gh` directly instead of through a shell. The shell wrapper (`cmd.exe /d /s /c` on Windows) caused endpoint protection tools such as Microsoft Defender for Endpoint to raise a "Suspicious Node.js process behavior" alert during `ctx7 setup`.
+- c82cc8a: Fix `ctx7 setup` skill install failing with "fetch failed" when the GitHub git tree API (`api.github.com`) is blocked or unreachable. Skill download now falls back to fetching the single `SKILL.md` directly from `raw.githubusercontent.com` — the URL the docs API already resolves — so setup succeeds in environments where only the docs/raw hosts are reachable.
+- 1c081df: Improve query prompts so agents request relevant library documentation instead of passing the task to complete.
+
+## 0.5.5
+
+### Patch Changes
+
+- e1b4793: Surface the underlying network error when an OAuth request fails. Connection failures now report the cause (TLS interception, DNS, firewall, timeout) with a hint, and non-JSON error responses report the HTTP status and body excerpt instead of a generic message.
+
+## 0.5.4
+
+### Patch Changes
+
+- 33229cb: Clarify the `query-docs` query description so it asks for a single concept per query. When a question spans multiple distinct topics, callers are now told to make a separate query per concept instead of combining them (unless the question is about how the concepts interact), which avoids diluted, shallow results. Applied consistently across the MCP server, CLI, pi, and AI SDK tools.
+
+## 0.5.3
+
+### Patch Changes
+
+- acd0d46: Surface GitHub API error details when skill download fails (#2363)
+
+  Previously, any GitHub API failure during `ctx7 setup` or `ctx7 setup --cli` produced the opaque message "GitHub API error", making it impossible to distinguish a 403 rate-limit from a 401 bad token or a 404 wrong branch.
+
+  Changes:
+  - `fetchRepoTree` and `fetchDefaultBranch` now extract the HTTP status and GitHub error body, returning descriptive strings like `"HTTP 403: API rate limit exceeded"`
+  - `listSkillsFromGitHub` distinguishes a true 404 (repo not found) from other errors (rate-limit, bad credentials) that previously all collapsed into the same silent result
+  - When a request fails unauthenticated with a 403/429, a hint is shown: `run \`gh auth login\` or set the GITHUB_TOKEN env var to increase rate limits`
+  - Failed skill entries in the setup results table now show a red `✖` with the error detail on its own line instead of embedding it in the status string
+
 ## 0.5.2
 
 ### Patch Changes

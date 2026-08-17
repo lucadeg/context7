@@ -1,5 +1,17 @@
 # @upstash/context7-pi
 
+## 0.1.2
+
+### Patch Changes
+
+- 1c081df: Improve query prompts so agents request relevant library documentation instead of passing the task to complete.
+
+## 0.1.1
+
+### Patch Changes
+
+- 33229cb: Clarify the `query-docs` query description so it asks for a single concept per query. When a question spans multiple distinct topics, callers are now told to make a separate query per concept instead of combining them (unless the question is about how the concepts interact), which avoids diluted, shallow results. Applied consistently across the MCP server, CLI, pi, and AI SDK tools.
+
 ## 0.1.0
 
 ### Minor Changes

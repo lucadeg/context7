@@ -1,12 +1,13 @@
 ---
 title: Troubleshooting
+description: Resolve common issues when setting up or using the Context7 MCP server
 ---
 
 This guide helps you resolve common issues when setting up or using Context7 MCP.
 
 ## Quick Checklist
 
-- Confirm Node.js v18+ is installed (`node --version`)
+- Confirm Node.js v20+ is installed (`node --version`)
 - Update to the latest Context7 MCP package (`@upstash/context7-mcp@latest`)
 - Verify connectivity with `curl https://mcp.context7.com/ping`
 - Add your API key to the configuration if you hit rate limits
@@ -91,7 +92,7 @@ Use the `--experimental-fetch` flag:
 
 ### Node.js Version
 
-Ensure you're using Node.js v18 or higher (`node --version`).
+Ensure you're using Node.js v20 or higher (`node --version`).
 
 ## Platform-Specific Issues
 
@@ -174,7 +175,7 @@ If you encounter rate limit errors:
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -193,7 +194,7 @@ For HTTP transport:
 ```json
 {
   "headers": {
-    "CONTEXT7_API_KEY": "YOUR_API_KEY"
+    "Authorization": "Bearer YOUR_API_KEY"
   }
 }
 ```
@@ -359,4 +360,4 @@ If these solutions don't resolve your issue:
 - [Getting Started Guide](/overview)
 - [Installation Instructions](https://github.com/upstash/context7#installation)
 - [API Documentation](/api-guide)
-- [Security & Privacy](/resources/security)
+- [Security & Privacy](/security/overview)

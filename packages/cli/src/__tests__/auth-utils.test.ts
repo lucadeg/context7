@@ -221,9 +221,9 @@ describe("isTokenExpired", () => {
 });
 
 describe("getValidAccessToken", () => {
-  test("returns null when no tokens stored", async () => {
+  test("returns undefined when no tokens stored", async () => {
     mfs.existsSync.mockReturnValue(false);
-    expect(await getValidAccessToken()).toBeNull();
+    expect(await getValidAccessToken()).toBeUndefined();
   });
 
   test("returns access_token when not expired", async () => {
@@ -237,7 +237,7 @@ describe("getValidAccessToken", () => {
     expect(await getValidAccessToken()).toBe("valid-tok");
   });
 
-  test("returns null when expired and no refresh_token", async () => {
+  test("returns undefined when expired and no refresh_token", async () => {
     const tokens: TokenData = {
       access_token: "expired-tok",
       token_type: "bearer",
@@ -245,7 +245,7 @@ describe("getValidAccessToken", () => {
     };
     mfs.existsSync.mockReturnValue(true);
     mfs.readFileSync.mockReturnValue(JSON.stringify(tokens));
-    expect(await getValidAccessToken()).toBeNull();
+    expect(await getValidAccessToken()).toBeUndefined();
   });
 
   test("refreshes token when expired and refresh_token exists", async () => {
@@ -285,7 +285,65 @@ describe("getValidAccessToken", () => {
     expect(mfs.writeFileSync).toHaveBeenCalled();
   });
 
-  test("returns null when refresh fails", async () => {
+  // RFC 6749 §6: dropping the stored refresh_token here would log the user out
+  // at the next expiry, with no error to explain why.
+  test("keeps the stored refresh_token when the refresh response omits one", async () => {
+    const tokens: TokenData = {
+      access_token: "expired-tok",
+      token_type: "bearer",
+      expires_at: Date.now() - 1000,
+      refresh_token: "refresh-tok",
+    };
+
+    mfs.existsSync.mockReturnValue(true);
+    mfs.readFileSync.mockReturnValue(JSON.stringify(tokens));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({ access_token: "new-tok", token_type: "bearer", expires_in: 3600 }),
+      })
+    );
+
+    expect(await getValidAccessToken()).toBe("new-tok");
+
+    const written = JSON.parse(mfs.writeFileSync.mock.calls[0][1] as string);
+    expect(written.refresh_token).toBe("refresh-tok");
+    expect(written.access_token).toBe("new-tok");
+  });
+
+  test("prefers a rotated refresh_token over the stored one", async () => {
+    const tokens: TokenData = {
+      access_token: "expired-tok",
+      token_type: "bearer",
+      expires_at: Date.now() - 1000,
+      refresh_token: "refresh-tok",
+    };
+
+    mfs.existsSync.mockReturnValue(true);
+    mfs.readFileSync.mockReturnValue(JSON.stringify(tokens));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: "new-tok",
+            token_type: "bearer",
+            expires_in: 3600,
+            refresh_token: "rotated-tok",
+          }),
+      })
+    );
+
+    expect(await getValidAccessToken()).toBe("new-tok");
+
+    const written = JSON.parse(mfs.writeFileSync.mock.calls[0][1] as string);
+    expect(written.refresh_token).toBe("rotated-tok");
+  });
+
+  test("returns undefined when refresh fails", async () => {
     const tokens: TokenData = {
       access_token: "expired-tok",
       token_type: "bearer",
@@ -299,11 +357,37 @@ describe("getValidAccessToken", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
-        json: () => Promise.resolve({ error: "invalid_grant" }),
+        status: 400,
+        url: "https://test.context7.com/api/oauth/token",
+        text: () => Promise.resolve(JSON.stringify({ error: "invalid_grant" })),
       })
     );
 
-    expect(await getValidAccessToken()).toBeNull();
+    expect(await getValidAccessToken()).toBeUndefined();
+  });
+
+  // An expired refresh token is indistinguishable from being logged out, so the
+  // caller reports "not logged in" rather than surfacing a network error here.
+  test("returns undefined when the refresh connection fails", async () => {
+    const tokens: TokenData = {
+      access_token: "expired-tok",
+      token_type: "bearer",
+      expires_at: Date.now() - 1000,
+      refresh_token: "refresh-tok",
+    };
+
+    mfs.existsSync.mockReturnValue(true);
+    mfs.readFileSync.mockReturnValue(JSON.stringify(tokens));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } })
+        )
+    );
+
+    expect(await getValidAccessToken()).toBeUndefined();
   });
 });
 
@@ -354,11 +438,44 @@ describe("startDeviceAuthorization", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
-        json: () =>
-          Promise.resolve({ error: "invalid_request", error_description: "bad client_id" }),
+        status: 400,
+        url: "https://t/api/oauth/device/code",
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({ error: "invalid_request", error_description: "bad client_id" })
+          ),
       })
     );
     await expect(startDeviceAuthorization("https://t", "bogus")).rejects.toThrow("bad client_id");
+  });
+
+  test("reports status and body excerpt when the response is not JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        url: "https://t/api/oauth/device/code",
+        text: () => Promise.resolve("<html><body>Blocked by proxy</body></html>"),
+      })
+    );
+    await expect(startDeviceAuthorization("https://t", "c")).rejects.toThrow(
+      /HTTP 403.*Blocked by proxy/s
+    );
+  });
+
+  test("surfaces the underlying cause when the connection fails", async () => {
+    const failure = Object.assign(new TypeError("fetch failed"), {
+      cause: {
+        code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+        message: "unable to verify leaf signature",
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(failure));
+
+    await expect(startDeviceAuthorization("https://t", "c")).rejects.toThrow(
+      /UNABLE_TO_VERIFY_LEAF_SIGNATURE.*NODE_EXTRA_CA_CERTS/s
+    );
   });
 });
 
@@ -412,7 +529,7 @@ describe("pollDeviceToken", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
     const result = await pollDeviceToken("https://t", "c", "dc");
     expect(result.status).toBe("transient");
-    expect(result.errorMessage).toBe("ECONNREFUSED");
+    expect(result.errorMessage).toContain("ECONNREFUSED");
   });
 
   test("throws on unknown 4xx error code", async () => {

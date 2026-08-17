@@ -6,7 +6,7 @@ import { resolveLibrary, getLibraryContext } from "../utils/api.js";
 import { recoverLibraryId } from "../utils/library-id.js";
 import { log } from "../utils/logger.js";
 import { trackEvent } from "../utils/tracking.js";
-import { loadTokens, isTokenExpired } from "../utils/auth.js";
+import { getValidAccessToken } from "../utils/auth.js";
 import type { LibrarySearchResult, ContextResponse } from "../types.js";
 
 const isTTY = process.stdout.isTTY;
@@ -16,12 +16,6 @@ function getReputationLabel(score: number | undefined): "High" | "Medium" | "Low
   if (score >= 7) return "High";
   if (score >= 4) return "Medium";
   return "Low";
-}
-
-function getAccessToken(): string | undefined {
-  const tokens = loadTokens();
-  if (!tokens || isTokenExpired(tokens)) return undefined;
-  return tokens.access_token;
 }
 
 function formatLibraryResult(lib: LibrarySearchResult, index: number): string {
@@ -57,7 +51,7 @@ async function resolveCommand(
   trackEvent("command", { name: "library" });
 
   const spinner = isTTY ? ora(`Searching for "${library}"...`).start() : null;
-  const accessToken = getAccessToken();
+  const accessToken = await getValidAccessToken();
 
   let data;
   try {
@@ -137,9 +131,8 @@ async function queryCommand(
     return;
   }
 
-  const accessToken = getAccessToken();
-
   const spinner = isTTY ? ora(`Fetching docs for "${libraryId}"...`).start() : null;
+  const accessToken = await getValidAccessToken();
   const outputType = options.json ? "json" : "txt";
 
   let result;
@@ -219,7 +212,7 @@ export function registerDocsCommands(program: Command): void {
   program
     .command("library")
     .argument("<name>", "Library name to search for")
-    .argument("[query]", "Question or task for relevance ranking")
+    .argument("[query]", "What to look up in the library's documentation")
     .option("--json", "Output as JSON")
     .description("Resolve a library name to a Context7 library ID")
     .action(async (name: string, query: string | undefined, options: { json?: boolean }) => {
@@ -229,7 +222,10 @@ export function registerDocsCommands(program: Command): void {
   program
     .command("docs")
     .argument("<libraryId>", "Context7 library ID (e.g., /facebook/react)")
-    .argument("<query>", "Question or task to get docs for")
+    .argument(
+      "<query>",
+      "Single-topic question to get docs for (run a separate query per distinct concept, unless asking how they interact)"
+    )
     .option("--json", "Output as JSON")
     .description("Query documentation for a library")
     .action(async (libraryId: string, query: string, options: { json?: boolean }) => {

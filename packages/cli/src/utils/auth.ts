@@ -85,48 +85,44 @@ export function isTokenExpired(tokens: TokenData): boolean {
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
-  const response = await fetch(`${getBaseUrl()}/api/oauth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
+  return oauthRequest<TokenData>(
+    `${getBaseUrl()}/api/oauth/token`,
+    new URLSearchParams({
       grant_type: "refresh_token",
       client_id: CLI_CLIENT_ID,
       refresh_token: refreshToken,
-    }).toString(),
-  });
-
-  if (!response.ok) {
-    const err = (await response.json().catch(() => ({}))) as TokenErrorResponse;
-    throw new Error(err.error_description || err.error || "Failed to refresh token");
-  }
-
-  return (await response.json()) as TokenData;
+    }),
+    "Failed to refresh token"
+  );
 }
 
 /**
- * Returns a valid access token, refreshing if expired. Returns null if no
+ * Returns a valid access token, refreshing if expired. Returns undefined if no
  * tokens are stored or refresh fails. Pre-0.5 installs may have OAuth tokens
  * with a `refresh_token`; new installs hold long-lived API keys that never
  * expire and skip the refresh path entirely.
  */
-export async function getValidAccessToken(): Promise<string | null> {
+export async function getValidAccessToken(): Promise<string | undefined> {
   const tokens = loadTokens();
-  if (!tokens) return null;
+  if (!tokens) return undefined;
 
   if (!isTokenExpired(tokens)) {
     return tokens.access_token;
   }
 
   if (!tokens.refresh_token) {
-    return null;
+    return undefined;
   }
 
   try {
     const newTokens = await refreshAccessToken(tokens.refresh_token);
-    saveTokens(newTokens);
+    // RFC 6749 §6: the response MAY omit refresh_token, and the client then
+    // keeps the one it already holds. Writing the response verbatim would
+    // drop it and log the user out at the next expiry.
+    saveTokens({ refresh_token: tokens.refresh_token, ...newTokens });
     return newTokens.access_token;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -147,6 +143,86 @@ export interface DeviceAuthorizationResponse {
 
 const DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 
+async function describeErrorResponse(response: Response, fallback: string): Promise<string> {
+  const body = await response.text().catch(() => "");
+
+  try {
+    const err = JSON.parse(body) as TokenErrorResponse;
+    const message = err.error_description || err.error;
+    if (message) return message;
+  } catch {
+    // An interceptor's HTML, not an OAuth error object.
+  }
+
+  const excerpt = body.replace(/\s+/g, " ").trim().slice(0, 200);
+  const detail = `HTTP ${response.status} from ${response.url}`;
+  return excerpt ? `${fallback} (${detail}): ${excerpt}` : `${fallback} (${detail})`;
+}
+
+const TLS_HINT =
+  "The TLS certificate could not be verified, which usually means a proxy is inspecting HTTPS traffic. Point NODE_EXTRA_CA_CERTS at your organization's root CA.";
+const DNS_HINT = "DNS lookup failed. Check your network or VPN connection.";
+const BLOCKED_HINT =
+  "The connection was refused or reset, which usually means a firewall or proxy is blocking it.";
+const TIMEOUT_HINT = "The connection timed out. A proxy or firewall may be dropping the request.";
+const DEFAULT_HINT =
+  "If you are behind a corporate proxy, note that Node does not use HTTPS_PROXY automatically.";
+
+const CONNECTION_HINTS: Record<string, string> = {
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: TLS_HINT,
+  SELF_SIGNED_CERT_IN_CHAIN: TLS_HINT,
+  DEPTH_ZERO_SELF_SIGNED_CERT: TLS_HINT,
+  CERT_HAS_EXPIRED: TLS_HINT,
+  ENOTFOUND: DNS_HINT,
+  EAI_AGAIN: DNS_HINT,
+  ECONNREFUSED: BLOCKED_HINT,
+  ECONNRESET: BLOCKED_HINT,
+  EHOSTUNREACH: BLOCKED_HINT,
+  ENETUNREACH: BLOCKED_HINT,
+  UND_ERR_CONNECT_TIMEOUT: TIMEOUT_HINT,
+  ETIMEDOUT: TIMEOUT_HINT,
+};
+
+function getErrorCause(error: unknown): { code?: string; message?: string } {
+  if (typeof error !== "object" || error === null || !("cause" in error)) return {};
+  const cause = (error as { cause: unknown }).cause;
+  if (typeof cause !== "object" || cause === null) return {};
+
+  const { code, message } = cause as { code?: unknown; message?: unknown };
+  return {
+    code: typeof code === "string" ? code : undefined,
+    message: typeof message === "string" ? message : undefined,
+  };
+}
+
+function describeConnectionError(error: unknown, url: string): string {
+  const { code, message } = getErrorCause(error);
+  const detail = message || (error instanceof Error ? error.message : String(error));
+  const hint = (code && CONNECTION_HINTS[code]) || DEFAULT_HINT;
+
+  return `Could not reach ${url}: ${detail}${code ? ` (${code})` : ""}\n${hint}`;
+}
+
+async function postForm(url: string, params: URLSearchParams): Promise<Response> {
+  try {
+    return await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+  } catch (error) {
+    throw new Error(describeConnectionError(error, url));
+  }
+}
+
+async function oauthRequest<T>(url: string, params: URLSearchParams, fallback: string): Promise<T> {
+  const response = await postForm(url, params);
+  if (!response.ok) {
+    throw new Error(await describeErrorResponse(response, fallback));
+  }
+  return (await response.json()) as T;
+}
+
 /** RFC 8628 §3.2 default poll interval when the server omits `interval`. */
 export const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 5;
 
@@ -165,18 +241,11 @@ export async function startDeviceAuthorization(
     // ignore
   }
 
-  const response = await fetch(`${baseUrl}/api/oauth/device/code`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-
-  if (!response.ok) {
-    const err = (await response.json().catch(() => ({}))) as TokenErrorResponse;
-    throw new Error(err.error_description || err.error || "Failed to start device authorization");
-  }
-
-  return (await response.json()) as DeviceAuthorizationResponse;
+  return oauthRequest<DeviceAuthorizationResponse>(
+    `${baseUrl}/api/oauth/device/code`,
+    params,
+    "Failed to start device authorization"
+  );
 }
 
 export interface PollDeviceTokenResult {
@@ -192,15 +261,14 @@ export async function pollDeviceToken(
 ): Promise<PollDeviceTokenResult> {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/api/oauth/device/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
+    response = await postForm(
+      `${baseUrl}/api/oauth/device/token`,
+      new URLSearchParams({
         grant_type: DEVICE_CODE_GRANT,
         device_code: deviceCode,
         client_id: clientId,
-      }).toString(),
-    });
+      })
+    );
   } catch (error) {
     // Network blip — keep polling.
     return {

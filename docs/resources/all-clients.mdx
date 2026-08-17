@@ -3,7 +3,7 @@ title: MCP Clients
 description: Installation examples for MCP clients
 ---
 
-Context7 supports all MCP clients. Below are configuration examples for popular clients. If your client isn't listed, check its documentation for MCP server installation. To configure manually, use the Context7 server URL `https://mcp.context7.com/mcp` with your MCP client and pass your API key via the `CONTEXT7_API_KEY` header.
+Context7 supports all MCP clients. Below are configuration examples for popular clients. If your client isn't listed, check its documentation for MCP server installation. To configure manually, use the Context7 server URL `https://mcp.context7.com/mcp` with your MCP client and pass your API key via the `Authorization: Bearer YOUR_API_KEY` header.
 
 <Tip>
   Looking for the easiest way to get started? Use `npx ctx7 setup` to configure Context7
@@ -45,7 +45,7 @@ claude mcp add --scope user context7 -- npx -y @upstash/context7-mcp --api-key Y
 #### Remote Server Connection
 
 ```sh
-claude mcp add --scope user --header "CONTEXT7_API_KEY: YOUR_API_KEY" --transport http context7 https://mcp.context7.com/mcp
+claude mcp add --scope user --header "Authorization: Bearer YOUR_API_KEY" --transport http context7 https://mcp.context7.com/mcp
 ```
 
 </Accordion>
@@ -68,7 +68,7 @@ Since Cursor 1.0, you can click the install button below for instant one-click i
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -104,7 +104,7 @@ Add this to your Opencode configuration file. See [Opencode MCP docs](https://op
     "type": "remote",
     "url": "https://mcp.context7.com/mcp",
     "headers": {
-      "CONTEXT7_API_KEY": "YOUR_API_KEY"
+      "Authorization": "Bearer YOUR_API_KEY"
     },
     "enabled": true
   }
@@ -123,6 +123,49 @@ Add this to your Opencode configuration file. See [Opencode MCP docs](https://op
     }
   }
 }
+```
+
+</Accordion>
+
+<Accordion title="OpenClaw">
+
+Add the hosted Context7 server with OpenClaw's MCP client registry. See the [OpenClaw MCP documentation](https://docs.openclaw.ai/tools/mcp) for more details.
+
+#### OAuth (Recommended)
+
+Register the Context7 OAuth endpoint, then sign in through your browser:
+
+```sh
+openclaw mcp add context7 \
+  --url https://mcp.context7.com/mcp/oauth \
+  --transport streamable-http \
+  --auth oauth
+
+openclaw mcp login context7
+```
+
+OpenClaw also provides a code-based login fallback for headless or remote environments. See [Set Up OAuth](/howto/oauth) for more details.
+
+#### API Key or Anonymous Access
+
+To connect without OAuth, register the standard endpoint:
+
+```sh
+openclaw mcp add context7 \
+  --url https://mcp.context7.com/mcp \
+  --transport streamable-http
+```
+
+This works without an API key at the anonymous rate limit. For higher limits, create a key in the [Context7 dashboard](https://context7.com/dashboard) and append this option to the command:
+
+```sh
+--header "Authorization: Bearer YOUR_API_KEY"
+```
+
+Verify that OpenClaw can connect and discover the Context7 tools:
+
+```sh
+openclaw mcp doctor context7 --probe
 ```
 
 </Accordion>
@@ -156,7 +199,7 @@ Add this to your Codex configuration file (`~/.codex/config.toml` or `.codex/con
 [mcp_servers.context7]
 command = "npx"
 args = ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_API_KEY"]
-startup_timeout_sec = 20
+startup_timeout_ms = 20_000
 ```
 
 #### Remote Server Connection
@@ -164,10 +207,10 @@ startup_timeout_sec = 20
 ```toml
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
-http_headers = { "CONTEXT7_API_KEY" = "YOUR_API_KEY" }
+http_headers = { "Authorization" = "Bearer YOUR_API_KEY" }
 ```
 
-<Note>If you see startup timeout errors, try increasing `startup_timeout_sec` to `40`.</Note>
+<Note>If you see startup timeout errors, try increasing `startup_timeout_ms` to `40_000`.</Note>
 
 </Accordion>
 
@@ -183,7 +226,7 @@ Add this to your Antigravity MCP config file. See [Antigravity MCP docs](https:/
     "context7": {
       "serverUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -223,7 +266,7 @@ Add this to your VS Code MCP config file (`.vscode/mcp.json`). See [VS Code MCP 
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -272,7 +315,7 @@ To use an API key in Kiro, add:
 
 ```json
 "headers": {
-  "CONTEXT7_API_KEY": "YOUR_API_KEY"
+  "Authorization": "Bearer YOUR_API_KEY"
 }
 ```
 
@@ -325,7 +368,7 @@ Add Context7 under the `mcp` key in your `kilo.jsonc`.
       "type": "remote",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       },
       "enabled": true
     }
@@ -362,7 +405,7 @@ Add this to your Roo Code MCP configuration file. See [Roo Code MCP docs](https:
       "type": "streamable-http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -396,7 +439,7 @@ Add this to your Devin Desktop MCP config file. See [Devin Desktop MCP docs](htt
     "context7": {
       "serverUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -517,7 +560,7 @@ Use the Add manually feature and fill in the JSON configuration. See [Trae docum
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -617,7 +660,7 @@ See [Gemini CLI Configuration](https://google-gemini.github.io/gemini-cli/docs/t
     "context7": {
       "httpUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY",
+        "Authorization": "Bearer YOUR_API_KEY",
         "Accept": "application/json, text/event-stream"
       }
     }
@@ -734,7 +777,7 @@ Add the following configuration to `Repository` -> `Settings` -> `Code & automat
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "$COPILOT_MCP_CONTEXT7_API_KEY"
+        "Authorization": "Bearer $COPILOT_MCP_CONTEXT7_API_KEY"
       },
       "tools": ["query-docs", "resolve-library-id"]
     }
@@ -757,7 +800,7 @@ The easiest way is the Context7 plugin, which bundles the MCP server with a skil
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       },
       "tools": ["query-docs", "resolve-library-id"]
     }
@@ -836,7 +879,7 @@ amp mcp add context7 https://mcp.context7.com/mcp
 #### With API Key (Higher Rate Limits & Private Repos)
 
 ```sh
-amp mcp add context7 --header "CONTEXT7_API_KEY=YOUR_API_KEY" https://mcp.context7.com/mcp
+amp mcp add context7 --header "Authorization=Bearer YOUR_API_KEY" https://mcp.context7.com/mcp
 ```
 
 </Accordion>
@@ -919,7 +962,7 @@ By default, configurations are saved to the project scope (`.qwen/settings.json`
 
 ```sh
 qwen mcp add --transport http context7 https://mcp.context7.com/mcp \
-  --header "CONTEXT7_API_KEY: YOUR_API_KEY" \
+  --header "Authorization: Bearer YOUR_API_KEY" \
   --header "Accept: application/json, text/event-stream"
 ```
 
@@ -942,7 +985,7 @@ qwen mcp add context7 -- npx -y @upstash/context7-mcp --api-key YOUR_API_KEY
     "context7": {
       "httpUrl": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY",
+        "Authorization": "Bearer YOUR_API_KEY",
         "Accept": "application/json, text/event-stream"
       }
     }
@@ -996,34 +1039,29 @@ docker build -t context7-mcp .
 }
 ```
 
-If you use the Docker MCP Toolkit image (`mcp/context7`) with a stdio-based client, set `MCP_TRANSPORT=stdio` so the container starts with stdio transport instead of its HTTP default. For Cline, Roo Code, and Claude Desktop, use:
+</Accordion>
+
+<Accordion title="Docker MCP Toolkit">
+
+Context7 is available in the [Docker MCP Catalog](https://hub.docker.com/mcp/server/context7/overview) as a **remote** server, so you don't need to build, pull, or run a local image. The MCP Toolkit connects to the hosted endpoint for you.
+
+1. In Docker Desktop, open **MCP Toolkit → Catalog**, search for **Context7**, and enable it.
+2. (Optional) In the server's **Config** tab, set your Context7 API key (`CONTEXT7_API_KEY`) for higher rate limits. The server also works without one.
+3. Connect your MCP client to Docker's MCP gateway. Either run `docker mcp client connect <client>` (for example `vscode`, `cursor`, or `claude-desktop`), or add the gateway to your client config manually:
 
 ```json
 {
   "mcpServers": {
-    "context7": {
+    "MCP_DOCKER": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-e", "MCP_TRANSPORT=stdio", "mcp/context7"]
+      "args": ["mcp", "gateway", "run"],
+      "type": "stdio"
     }
   }
 }
 ```
 
-For VS Code, use the same Docker command in the `servers` format:
-
-```json
-{
-  "servers": {
-    "context7": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-e", "MCP_TRANSPORT=stdio", "mcp/context7"]
-    }
-  }
-}
-```
-
-Keep using the remote server URL for HTTP-based clients.
+The gateway exposes every server you've enabled in the MCP Toolkit, including Context7. Tools appear under the `MCP_DOCKER` server in your client.
 
 </Accordion>
 
@@ -1086,7 +1124,7 @@ See [Visual Studio MCP Servers documentation](https://learn.microsoft.com/visual
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -1123,7 +1161,7 @@ Add this to your Crush configuration file. See [Crush MCP docs](https://github.c
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -1278,6 +1316,38 @@ See [Local and Remote MCPs for Perplexity](https://www.perplexity.ai/help-center
 
 </Accordion>
 
+<Accordion title="Manus">
+
+Manus includes a built-in Context7 connector:
+
+1. Navigate `Settings` > `Connectors`.
+2. In the `Apps` tab, search for `Context7`.
+3. Click `Context7` to enable it.
+
+<Frame>
+  <img src="/images/clients/manus/connector.png" alt="Context7 connector in Manus" />
+</Frame>
+
+Alternatively, add it as a custom MCP connection with your API key:
+
+1. Navigate `Settings` > `Connectors` > `Custom MCP`.
+2. Fill in the configuration:
+
+| Field              | Value                          |
+| ------------------ | ------------------------------ |
+| **Server Name**    | `Context7`                     |
+| **Transport Type** | `HTTP`                         |
+| **Server URL**     | `https://mcp.context7.com/mcp` |
+| **Custom headers** | `CONTEXT7_API_KEY`: `YOUR_API_KEY` |
+
+3. Click `Save`.
+
+<Frame>
+  <img src="/images/clients/manus/custom-mcp.png" alt="Context7 custom MCP configuration in Manus" />
+</Frame>
+
+</Accordion>
+
 <Accordion title="Factory">
 
 Factory's droid supports MCP servers through its CLI. See [Factory MCP docs](https://docs.factory.ai/cli/configuration/mcp) for more info.
@@ -1285,7 +1355,7 @@ Factory's droid supports MCP servers through its CLI. See [Factory MCP docs](htt
 #### Remote Server Connection
 
 ```sh
-droid mcp add context7 https://mcp.context7.com/mcp --type http --header "CONTEXT7_API_KEY: YOUR_API_KEY"
+droid mcp add context7 https://mcp.context7.com/mcp --type http --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 #### Local Server Connection
@@ -1309,6 +1379,33 @@ See the [Emdash repository](https://github.com/generalaction/emdash) for more in
 <Accordion title="Desktop Extension">
 
 Install the [context7.mcpb](https://github.com/upstash/context7/tree/master/packages/mcp/mcpb/context7.mcpb) file and add it to your client. See [MCP bundles docs](https://github.com/modelcontextprotocol/mcpb#mcp-bundles-mcpb) for more info.
+
+</Accordion>
+
+<Accordion title="AnythingLLM">
+
+AnythingLLM supports MCP Servers through GUI. 
+
+1. Navigate `AnythingLLM` > `Agents Skills`
+2. Select `MCP Servers`.
+3. Click `Edit MCP config`.
+4. Paste.
+5. Click to "Refresh" button.
+
+#### Remote Connection
+```json
+{
+"mcpServers": {
+  "context7": {
+    "type": "streamable",
+    "url": "https://mcp.context7.com/mcp",
+    "headers": { 
+		  "Authorization": "Bearer YOUR_API_KEY"
+		}	
+	}
+}
+}
+```
 
 </Accordion>
 
